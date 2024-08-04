@@ -1,0 +1,34 @@
+/target
+.vs/
+
+# Ignorar metadatos de compilaci�n y archivos de lock de Cargo
+**/*.rs.bk
+Cargo.lock
+
+# Ignorar configuraciones de compilaci�n de editores/IDE
+.idea/
+.vscode/
+*.iml
+
+# Ignorar archivos de prueba y de resultados
+/test-results/
+*.out
+*.bmp
+
+# Ignorar archivos generados por el sistema operativo
+.DS_Store
+Thumbs.db
+
+# Ignorar archivos temporales
+*.tmp
+*.swp
+*.bak
+*.old
+*.log
+
+# Ignorar archivos binarios
+*.exe
+*.dll
+*.so
+*.dylib
+/target
