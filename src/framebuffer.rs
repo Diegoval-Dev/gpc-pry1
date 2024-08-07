@@ -23,13 +23,14 @@ impl Framebuffer {
     }
 
     pub fn clear(&mut self) {
-        self.buffer.fill(self.background_color.to_hex());
+        for pixel in self.buffer.iter_mut() {
+            *pixel = self.background_color.to_hex();
+        }
     }
 
-    pub fn point(&mut self, x: isize, y: isize) {
-        if x >= 0 && x < self.width as isize && y >= 0 && y < self.height as isize {
-            let index = y as usize * self.width + x as usize;
-            self.buffer[index] = self.current_color.to_hex();
+    pub fn point(&mut self, x: usize, y: usize) {
+        if x < self.width && y < self.height {
+            self.buffer[y * self.width + x] = self.current_color.to_hex();
         }
     }
 
