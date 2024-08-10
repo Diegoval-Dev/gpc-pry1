@@ -38,7 +38,7 @@ pub fn cast_ray(
 
         // Dibuja la línea solo si draw_line es true
         if draw_line {
-            framebuffer.point(x, y);
+            framebuffer.point(x, y, framebuffer.current_color.to_hex());
         }
 
         d += 10.0;

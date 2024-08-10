@@ -5,7 +5,7 @@ pub struct Framebuffer {
     pub height: usize,
     pub buffer: Vec<u32>,
     background_color: Color,
-    current_color: Color,
+    pub current_color: Color,
 }
 
 impl Framebuffer {
@@ -23,14 +23,13 @@ impl Framebuffer {
     }
 
     pub fn clear(&mut self) {
-        for pixel in self.buffer.iter_mut() {
-            *pixel = self.background_color.to_hex();
-        }
+        self.buffer.fill(self.background_color.to_hex());
     }
 
-    pub fn point(&mut self, x: usize, y: usize) {
+    pub fn point(&mut self, x: usize, y: usize, color: u32) {
         if x < self.width && y < self.height {
-            self.buffer[y * self.width + x] = self.current_color.to_hex();
+            let index = y * self.width + x;
+            self.buffer[index] = color;
         }
     }
 
