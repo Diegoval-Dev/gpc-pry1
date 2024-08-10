@@ -13,10 +13,11 @@ pub fn cast_ray(
     player: &Player,
     a: f32,
     block_size: usize,
+    draw_line: bool, // Parámetro adicional para controlar el dibujo de la línea
 ) -> Intersect {
     let mut d = 0.0;
 
-    framebuffer.set_current_color(Color::new(255, 255, 255)); // Color de la línea de rayos
+    framebuffer.set_current_color(Color::new(255, 221, 221)); // Color de la línea de rayos
 
     loop {
         let cos = d * a.cos();
@@ -27,6 +28,7 @@ pub fn cast_ray(
         let i = x / block_size;
         let j = y / block_size;
 
+        // Si el rayo golpea una pared (cualquier celda que no sea ' '), devolvemos la intersección
         if maze[j][i] != ' ' {
             return Intersect {
                 distance: d,
@@ -34,7 +36,10 @@ pub fn cast_ray(
             };
         }
 
-        framebuffer.point(x, y); // Usando usize para x e y
+        // Dibuja la línea solo si draw_line es true
+        if draw_line {
+            framebuffer.point(x, y);
+        }
 
         d += 10.0;
     }
