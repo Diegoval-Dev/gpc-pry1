@@ -5,11 +5,11 @@ mod cast_ray;
 mod color;
 mod events;
 
-use minifb::{Window, WindowOptions, Key};
+use minifb::{Window, WindowOptions, Key, MouseMode};
 use nalgebra_glm::Vec2;
 use std::f32::consts::PI;
 use std::time::{Duration, Instant};
-use std::process::Command; 
+use std::process::Command;
 use crate::framebuffer::Framebuffer;
 use crate::maze::load_maze;
 use crate::player::Player;
@@ -19,11 +19,11 @@ use crate::color::Color;
 
 fn cell_to_color(cell: char) -> Color {
     match cell {
-        '+' | '-' | '|' => Color::new(0, 0, 0),  
-        ' ' => Color::new(87, 35, 100),         
-        'p' => Color::new(0, 255, 0),            
-        'g' => Color::new(255, 0, 0),            
-        _ => Color::new(255, 255, 255),          
+        '+' | '-' | '|' => Color::new(0, 0, 0),
+        ' ' => Color::new(87, 35, 100),
+        'p' => Color::new(0, 255, 0),
+        'g' => Color::new(255, 0, 0),
+        _ => Color::new(255, 255, 255),
     }
 }
 
@@ -60,7 +60,7 @@ fn render2d(framebuffer: &mut Framebuffer, player: &Player, maze: &Vec<Vec<char>
         }
     }
 
-    framebuffer.set_current_color(Color::new(0, 0, 255)); 
+    framebuffer.set_current_color(Color::new(0, 0, 255));
     framebuffer.point(player.pos.x as usize, player.pos.y as usize);
 
     let num_rays = 5;
@@ -102,10 +102,10 @@ fn render3d(framebuffer: &mut Framebuffer, player: &Player, maze: &Vec<Vec<char>
 }
 
 fn render_fps(framebuffer: &mut Framebuffer, fps: f32) {
-    let color = Color::new(255, 255, 0); 
+    let color = Color::new(255, 255, 0);
     framebuffer.set_current_color(color);
 
-    let digits = format!("{:.2}", fps); 
+    let digits = format!("{:.2}", fps);
     let start_x = framebuffer.width - digits.len() * 10 - 10;
     let y = 10;
 
@@ -140,87 +140,90 @@ fn draw_digit(framebuffer: &mut Framebuffer, x: usize, y: usize, digit: char) {
 }
 
 fn main() {
-    let python_script = "python"; 
-    let script_path = "maze.py";
-    let args = ["10", "10"];
+  // Ejecutar el script Python para generar el laberinto
+  let python_script = "python"; // Asumiendo que se usa python
+  let script_path = "maze.py";
+  let args = ["10", "10"];
 
-    let output = Command::new(python_script)
-        .arg(script_path)
-        .args(&args)
-        .output()
-        .expect("Failed to execute script");
+  let output = Command::new(python_script)
+      .arg(script_path)
+      .args(&args)
+      .output()
+      .expect("Failed to execute script");
 
-    if !output.status.success() {
-        panic!("Failed to generate maze: {:?}", output);
-    }
+  if !output.status.success() {
+      panic!("Failed to generate maze: {:?}", output);
+  }
 
-    let window_width = 800;  
-    let window_height = 600; 
+  let window_width = 800;  
+  let window_height = 600; 
 
-    let framebuffer_width = 800;
-    let framebuffer_height = 600;
+  let framebuffer_width = 800;
+  let framebuffer_height = 600;
 
-    let frame_delay = Duration::from_millis(16);
-    let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
+  let frame_delay = Duration::from_millis(16);
+  let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
 
-    let mut window = Window::new(
-        "Rust Graphics - Maze Example",
-        window_width,
-        window_height,
-        WindowOptions::default(),
-    ).unwrap();
+  let mut window = Window::new(
+      "Rust Graphics - Maze Example",
+      window_width,
+      window_height,
+      WindowOptions::default(),
+  ).unwrap();
 
-    framebuffer.set_background_color(Color::new(51, 51, 85));
+  framebuffer.set_background_color(Color::new(51, 51, 85));
 
-    let maze = load_maze("./maze.txt");
+  let maze = load_maze("./maze.txt");
 
-    let player_start = find_player_start(&maze).unwrap_or(Vec2::new(1.0, 1.0));
-    let mut player = Player {
-        pos: player_start * 30.0, 
-        a: PI / 3.0,
-        fov: PI / 2.0,
-    };
+  let player_start = find_player_start(&maze).unwrap_or(Vec2::new(1.0, 1.0));
+  let mut player = Player {
+      pos: player_start * 30.0,
+      a: PI / 3.0,
+      fov: PI / 2.0,
+  };
 
-    let block_size = 25;
-    let mut mode = "2D";  
-    let mut m_was_down = false;  
+  let block_size = 25;
+  let mut mode = "2D";  // Modo inicial
+  let mut m_was_down = false;  // Para detectar el cambio de modo
+  let mut last_mouse_pos = None;
 
-    let mut last_time = Instant::now();
-    let mut frames = 0;
-    let mut fps = 0.0;
+  let mut last_time = Instant::now();
+  let mut frames = 0;
+  let mut fps = 0.0;
 
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        framebuffer.clear();
+  while window.is_open() && !window.is_key_down(Key::Escape) {
+      framebuffer.clear();
 
-        let m_is_down = window.is_key_down(Key::M);
-        if m_is_down && !m_was_down {
-            mode = if mode == "2D" { "3D" } else { "2D" };
-        }
-        m_was_down = m_is_down;
+      let m_is_down = window.is_key_down(Key::M);
+      if m_is_down && !m_was_down {
+          mode = if mode == "2D" { "3D" } else { "2D" };
+      }
+      m_was_down = m_is_down;
 
-        process_events(&window, &mut player, &maze, block_size);
+      process_events(&window, &mut player, &maze, block_size, &mut last_mouse_pos);
 
-        if mode == "2D" {
-            render2d(&mut framebuffer, &player, &maze, block_size);
-        } else {
-            render3d(&mut framebuffer, &player, &maze, block_size);
-        }
+      if mode == "2D" {
+          render2d(&mut framebuffer, &player, &maze, block_size);
+      } else {
+          render3d(&mut framebuffer, &player, &maze, block_size);
+      }
 
-        frames += 1;
-        let now = Instant::now();
-        let elapsed = now.duration_since(last_time).as_secs_f32();
-        if elapsed >= 1.0 {
-            fps = frames as f32 / elapsed; 
-            frames = 0;
-            last_time = now;
-        }
+      // Calcular FPS
+      frames += 1;
+      let now = Instant::now();
+      let elapsed = now.duration_since(last_time).as_secs_f32();
+      if elapsed >= 1.0 {
+          fps = frames as f32 / elapsed; // Calcular FPS exactos
+          frames = 0;
+          last_time = now;
+      }
 
-        render_fps(&mut framebuffer, fps);
+      render_fps(&mut framebuffer, fps);
 
-        window
-            .update_with_buffer(framebuffer.get_buffer(), framebuffer_width, framebuffer_height)
-            .unwrap();
+      window
+          .update_with_buffer(framebuffer.get_buffer(), framebuffer_width, framebuffer_height)
+          .unwrap();
 
-        std::thread::sleep(frame_delay);
-    }
+      std::thread::sleep(frame_delay);
+  }
 }

@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 nalgebra-glm = "0.18"
-minifb = "0.26.0"
+minifb = "0.22"
