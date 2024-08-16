@@ -4,6 +4,7 @@ mod player;
 mod cast_ray;
 mod color;
 mod events;
+mod audio_player;
 
 use minifb::{Window, WindowOptions, Key, MouseMode};
 use nalgebra_glm::Vec2;
@@ -17,6 +18,8 @@ use crate::cast_ray::cast_ray;
 use crate::events::process_events;
 use crate::color::Color;
 use image::GenericImageView;
+use crate::audio_player::AudioPlayer;
+
 
 fn load_texture(file_path: &str) -> Vec<u32> {
   let img = image::open(file_path).expect("Failed to load texture");
@@ -159,7 +162,7 @@ fn render3d(
 ) {
   let num_rays = framebuffer.width;
   let hh = framebuffer.height as f32 / 2.0;
-  let distance_to_projection_plane = 70.0;
+  let distance_to_projection_plane = 60.0;
 
   for i in 0..num_rays {
       let current_ray = i as f32 / num_rays as f32;
@@ -190,26 +193,44 @@ fn render3d(
 }
 
 fn apply_texture(
-  framebuffer: &mut Framebuffer,
-  i: usize,
-  hh: f32,
-  distance_to_wall: f32,
-  distance_to_projection_plane: f32,
-  texture: &[u32],
-  texture_width: usize,
-  texture_height: usize,
+    framebuffer: &mut Framebuffer,
+    i: usize,
+    hh: f32,
+    distance_to_wall: f32,
+    distance_to_projection_plane: f32,
+    texture: &[u32],
+    texture_width: usize,
+    texture_height: usize,
 ) {
-  let stake_height = (hh / distance_to_wall) * distance_to_projection_plane;
-  let stake_top = (hh - (stake_height / 2.0)).max(0.0) as usize;
-  let stake_bottom = (hh + (stake_height / 2.0)).min(framebuffer.height as f32) as usize;
+    // Ensure that the x-coordinate (i) is within the framebuffer bounds
+    if i >= framebuffer.width {
+        return;
+    }
 
-  for y in stake_top..stake_bottom {
-      let tex_x = (i as f32 / framebuffer.width as f32 * texture_width as f32) as usize;
-      let tex_y = ((y - stake_top) as f32 / (stake_bottom - stake_top) as f32 * texture_height as f32) as usize;
-      let color = texture[tex_y * texture_width + tex_x];
-      framebuffer.point(i, y, color);
-  }
+    let stake_height = (hh / distance_to_wall) * distance_to_projection_plane;
+    let stake_top = (hh - (stake_height / 2.0)).max(0.0) as usize;
+    let stake_bottom = (hh + (stake_height / 2.0)).min(framebuffer.height as f32) as usize;
+
+    for y in stake_top..stake_bottom {
+        // Ensure that the y-coordinate is within the framebuffer bounds
+        if y >= framebuffer.height {
+            continue;
+        }
+
+        let tex_x = (i as f32 / framebuffer.width as f32 * texture_width as f32) as usize;
+        let tex_y = ((y - stake_top) as f32 / (stake_bottom - stake_top) as f32 * texture_height as f32) as usize;
+
+        // Ensure tex_x and tex_y are within texture bounds
+        if tex_x < texture_width && tex_y < texture_height {
+            let color_index = tex_y * texture_width + tex_x;
+            if color_index < texture.len() {
+                let color = texture[color_index];
+                framebuffer.point(i, y, color);
+            }
+        }
+    }
 }
+
 
 fn draw_stake(
   framebuffer: &mut Framebuffer,
@@ -287,8 +308,52 @@ fn draw_digit(framebuffer: &mut Framebuffer, x: usize, y: usize, digit: char) {
   }
 }
 
+fn render_minimap(
+    framebuffer: &mut Framebuffer,
+    player: &Player,
+    maze: &Vec<Vec<char>>,
+    framebuffer_width: usize,
+    framebuffer_height: usize,
+    minimap_size: usize,
+    block_size: usize,
+) {
+    let minimap_scale = minimap_size / maze.len().max(maze[0].len()); 
+    let minimap_x = 10; 
+    let minimap_y = framebuffer_height - minimap_size - 10; 
+
+    // Dibujar el minimapa
+    for (row_index, row) in maze.iter().enumerate() {
+        for (col_index, &cell) in row.iter().enumerate() {
+            let color = match cell {
+                '+' | '-' | '|' => Color::new(100, 100, 100), // Color gris para paredes
+                'p' => Color::new(255, 0, 0),                 // Verde para el punto de inicio
+                'g' => Color::new(0, 255, 0),                 // Rojo para el punto final
+                _ => Color::new(200, 200, 200),               // Color claro para el suelo
+            };
+            
+            framebuffer.set_current_color(color);
+
+            let x0 = minimap_x + col_index * minimap_scale;
+            let y0 = minimap_y + row_index * minimap_scale;
+            for x in 0..minimap_scale {
+                for y in 0..minimap_scale {
+                    framebuffer.point(x0 + x, y0 + y, framebuffer.current_color.to_hex());
+                }
+            }
+        }
+    }
+
+
+    let player_minimap_x = minimap_x + (player.pos.x / block_size as f32 * minimap_scale as f32) as usize;
+    let player_minimap_y = minimap_y + (player.pos.y / block_size as f32 * minimap_scale as f32) as usize;
+
+    framebuffer.set_current_color(Color::new(0, 0, 255)); 
+    framebuffer.point(player_minimap_x, player_minimap_y, framebuffer.current_color.to_hex());
+}
+
 fn main() {
-    let python_script = "python"; 
+
+    let python_script = "python";
     let script_path = "maze.py";
     let args = ["10", "10"];
 
@@ -312,7 +377,7 @@ fn main() {
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
 
     let mut window = Window::new(
-        "Maze 2D/3D",
+        "Maze 2D/3D Taylosr’s Version",
         window_width,
         window_height,
         WindowOptions::default(),
@@ -330,19 +395,20 @@ fn main() {
         fov: PI / 2.0,
     };
 
+    let audio_player = AudioPlayer::new("fff.wav");
+    audio_player.play(); 
 
-    let wall_texture_1 = load_texture("Paredes.png");
-let wall_texture_2 = load_texture("ParedCorta.png");
-let wall_texture_3 = load_texture("Esquina.png");
-let floor_texture = load_texture("Suelo.png");
+    let wall_texture_1 = load_texture("Brick_20-128x128.png");
+    let wall_texture_2 = load_texture("Brick_12-128x128.png");
+    let wall_texture_3 = load_texture("Brick_02-128x128.png");
+    let floor_texture = load_texture("suelo.png");
 
-
-let texture_width = 64; 
-let texture_height = 64; 
+    let texture_width = 128;
+    let texture_height = 128;
 
     let block_size = 25;
-    let mut mode = "2D"; 
-    let mut m_was_down = false; 
+    let mut mode = "2D";
+    let mut m_was_down = false;
     let mut last_mouse_pos = None;
 
     let mut last_time = Instant::now();
@@ -358,42 +424,54 @@ let texture_height = 64;
         }
         m_was_down = m_is_down;
 
-        process_events(&window, &mut player, &maze, block_size, &mut last_mouse_pos);
+        process_events(&window, &mut player, &maze, block_size, &mut last_mouse_pos, &audio_player);
 
         if mode == "2D" {
-          render2d(
-              &mut framebuffer,
-              &player,
-              &maze,
-              block_size,
-              &wall_texture_1,
-              &wall_texture_2,
-              &wall_texture_3,
-              texture_width,
-              texture_height,
-          );
-      }
-       else {
-        render3d(
-          &mut framebuffer,
-          &player,
-          &maze,
-          block_size,
-          &wall_texture_1,
-          &wall_texture_2,
-          &wall_texture_3,
-          texture_width,
-          texture_height,
-      );
-      }
-      
+            render2d(
+                &mut framebuffer,
+                &player,
+                &maze,
+                block_size,
+                &wall_texture_1,
+                &wall_texture_2,
+                &wall_texture_3,
+                texture_width,
+                texture_height,
+            );
+        } else {
+            render3d(
+                &mut framebuffer,
+                &player,
+                &maze,
+                block_size,
+                &wall_texture_1,
+                &wall_texture_2,
+                &wall_texture_3,
+                texture_width,
+                texture_height,
+            );
+        }
 
+
+        let framebuffer_width = framebuffer.width;
+        let framebuffer_height = framebuffer.height;
+
+
+        render_minimap(
+            &mut framebuffer,
+            &player,
+            &maze,
+            framebuffer_width,
+            framebuffer_height,
+            200,                 
+            block_size,          
+        );
 
         frames += 1;
         let now = Instant::now();
         let elapsed = now.duration_since(last_time).as_secs_f32();
         if elapsed >= 1.0 {
-            fps = frames as f32 / elapsed; 
+            fps = frames as f32 / elapsed;
             frames = 0;
             last_time = now;
         }
@@ -406,4 +484,5 @@ let texture_height = 64;
 
         std::thread::sleep(frame_delay);
     }
+    audio_player.stop();
 }
