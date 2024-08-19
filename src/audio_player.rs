@@ -19,7 +19,7 @@ impl AudioPlayer {
         
         let looped_source = source.repeat_infinite();
         sink.append(looped_source);
-        sink.set_volume(0.1);
+        sink.set_volume(0.5);
 
         AudioPlayer {
             sink: Arc::new(Mutex::new(sink)),

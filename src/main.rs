@@ -202,7 +202,7 @@ fn apply_texture(
     texture_width: usize,
     texture_height: usize,
 ) {
-    // Ensure that the x-coordinate (i) is within the framebuffer bounds
+
     if i >= framebuffer.width {
         return;
     }
@@ -212,7 +212,6 @@ fn apply_texture(
     let stake_bottom = (hh + (stake_height / 2.0)).min(framebuffer.height as f32) as usize;
 
     for y in stake_top..stake_bottom {
-        // Ensure that the y-coordinate is within the framebuffer bounds
         if y >= framebuffer.height {
             continue;
         }
@@ -220,7 +219,7 @@ fn apply_texture(
         let tex_x = (i as f32 / framebuffer.width as f32 * texture_width as f32) as usize;
         let tex_y = ((y - stake_top) as f32 / (stake_bottom - stake_top) as f32 * texture_height as f32) as usize;
 
-        // Ensure tex_x and tex_y are within texture bounds
+
         if tex_x < texture_width && tex_y < texture_height {
             let color_index = tex_y * texture_width + tex_x;
             if color_index < texture.len() {
@@ -321,14 +320,13 @@ fn render_minimap(
     let minimap_x = 10; 
     let minimap_y = framebuffer_height - minimap_size - 10; 
 
-    // Dibujar el minimapa
     for (row_index, row) in maze.iter().enumerate() {
         for (col_index, &cell) in row.iter().enumerate() {
             let color = match cell {
-                '+' | '-' | '|' => Color::new(100, 100, 100), // Color gris para paredes
-                'p' => Color::new(255, 0, 0),                 // Verde para el punto de inicio
-                'g' => Color::new(0, 255, 0),                 // Rojo para el punto final
-                _ => Color::new(200, 200, 200),               // Color claro para el suelo
+                '+' | '-' | '|' => Color::new(100, 100, 100), 
+                'p' => Color::new(0, 255, 0),                 
+                'g' => Color::new(255, 0, 0),                 
+                _ => Color::new(200, 200, 200),               
             };
             
             framebuffer.set_current_color(color);
@@ -351,8 +349,67 @@ fn render_minimap(
     framebuffer.point(player_minimap_x, player_minimap_y, framebuffer.current_color.to_hex());
 }
 
-fn main() {
+fn draw_char(framebuffer: &mut Framebuffer, x: usize, y: usize, ch: char, scale: usize) {
+    let char_map = match ch {
+        'P' => ["#### ", "#   #", "#### ", "#    ", "#    "],
+        'r' => ["#### ", "#   #", "#### ", "# #  ", "#  # "],
+        'e' => [" ### ", "#   #", "#####", "#    ", " ### "],
+        's' => [" ####", "#    ", " ### ", "    #", "#### "],
+        'E' => ["#####", "#    ", "#### ", "#    ", "#####"],
+        'n' => ["     ", "     ", "###  ", "#  # ", "#  # "],
+        't' => ["#####", "  #  ", "  #  ", "  #  ", "  #  "],
+        'o' => ["     ", "     ", " ### ", "#   #", " ### "],
+        'S' => ["#### ", "#    ", " ### ", "    #", "#### "],
+        ' ' => ["     ", "     ", "     ", "     ", "     "],
+        'a' => ["     ", " ### ", "#   #", "#####", "#   #"],
+        't' => ["#####", "  #  ", "  #  ", "  #  ", "  #  "],
+        _ => ["     ", "     ", "     ", "     ", "     "],  
+    };
 
+    for (row, line) in char_map.iter().enumerate() {
+        for (col, pixel) in line.chars().enumerate() {
+            if pixel == '#' {
+                for dy in 0..scale {
+                    for dx in 0..scale {
+                        framebuffer.point(x + col * scale + dx, y + row * scale + dy, framebuffer.current_color.to_hex());
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn draw_text(framebuffer: &mut Framebuffer, x: usize, y: usize, text: &str, scale: usize) {
+    for (i, ch) in text.chars().enumerate() {
+        draw_char(framebuffer, x + i * (6 * scale), y, ch, scale);  
+    }
+}
+
+
+
+fn wait_for_enter(window: &mut Window, framebuffer: &mut Framebuffer) {
+    framebuffer.clear();
+    framebuffer.set_current_color(Color::new(255, 255, 255)); 
+    draw_text(framebuffer, 100, 200, "Press Enter to Start", 2); 
+
+    window
+        .update_with_buffer(framebuffer.get_buffer(), framebuffer.width, framebuffer.height)
+        .unwrap();
+
+    while window.is_open() && !window.is_key_down(Key::Enter) {
+        framebuffer.clear();
+        framebuffer.set_current_color(Color::new(255, 255, 255)); 
+        draw_text(framebuffer, 100, 200, "Press Enter to Start", 2);  
+
+        window
+            .update_with_buffer(framebuffer.get_buffer(), framebuffer.width, framebuffer.height)
+            .unwrap();
+
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn main() {
     let python_script = "python";
     let script_path = "maze.py";
     let args = ["10", "10"];
@@ -370,8 +427,10 @@ fn main() {
     let window_width = 800;
     let window_height = 600;
 
-    let framebuffer_width = 800;
-    let framebuffer_height = 600;
+    let block_size = 25;
+
+    let framebuffer_width = block_size * 31;
+    let framebuffer_height = block_size * 21;
 
     let frame_delay = Duration::from_millis(16);
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
@@ -384,7 +443,9 @@ fn main() {
     )
     .unwrap();
 
-    framebuffer.set_background_color(Color::new(51, 51, 85));
+    framebuffer.set_background_color(Color::new(0, 0, 0));
+
+    wait_for_enter(&mut window, &mut framebuffer);
 
     let maze = load_maze("./maze.txt");
 
@@ -392,7 +453,7 @@ fn main() {
     let mut player = Player {
         pos: player_start * 30.0,
         a: PI / 3.0,
-        fov: PI / 2.0,
+        fov: PI / 3.0,
     };
 
     let audio_player = AudioPlayer::new("fff.wav");
@@ -401,12 +462,10 @@ fn main() {
     let wall_texture_1 = load_texture("Brick_20-128x128.png");
     let wall_texture_2 = load_texture("Brick_12-128x128.png");
     let wall_texture_3 = load_texture("Brick_02-128x128.png");
-    let floor_texture = load_texture("suelo.png");
 
     let texture_width = 128;
     let texture_height = 128;
-
-    let block_size = 25;
+    
     let mut mode = "2D";
     let mut m_was_down = false;
     let mut last_mouse_pos = None;
@@ -452,10 +511,8 @@ fn main() {
             );
         }
 
-
         let framebuffer_width = framebuffer.width;
         let framebuffer_height = framebuffer.height;
-
 
         render_minimap(
             &mut framebuffer,
@@ -486,3 +543,4 @@ fn main() {
     }
     audio_player.stop();
 }
+

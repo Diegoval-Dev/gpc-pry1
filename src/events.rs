@@ -36,6 +36,15 @@ pub fn process_events(
         new_pos.y -= player.a.sin() * MOVE_SPEED;
     }
 
+    if window.is_key_down(Key::D) {
+        new_pos.x -= player.a.sin() * MOVE_SPEED;  
+        new_pos.y += player.a.cos() * MOVE_SPEED;
+    }
+    if window.is_key_down(Key::A) {
+        new_pos.x += player.a.sin() * MOVE_SPEED * 0.75;  
+        new_pos.y -= player.a.cos() * MOVE_SPEED * 0.75;
+    }
+
     let new_i = (new_pos.x / block_size as f32) as usize;
     let new_j = (new_pos.y / block_size as f32) as usize;
 
